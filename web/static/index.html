@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep Research Agent</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-light: #eef2ff;
+  --text: #1e293b;
+  --muted: #64748b;
+  --success: #059669;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: var(--shadow);
+}
+
+header h1 { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+header h1 span { font-size: 1.3rem; }
+
+#settings-btn {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: .35rem .75rem; font-size: .85rem; color: var(--muted);
+  cursor: pointer; display: flex; align-items: center; gap: .4rem;
+  transition: border-color .15s, color .15s;
+}
+#settings-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+main { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 4rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+/* Settings */
+#settings-panel { display: none; }
+#settings-panel.open { display: block; }
+#settings-panel h2 { font-size: .9rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 1rem; }
+
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+@media (max-width: 600px) { .settings-grid { grid-template-columns: 1fr; } }
+
+.field { display: flex; flex-direction: column; gap: .3rem; }
+.field label { font-size: .8rem; font-weight: 500; color: var(--muted); }
+.field input, .field select {
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: .45rem .7rem; font-size: .9rem; color: var(--text);
+  background: var(--surface); transition: border-color .15s;
+}
+.field input:focus, .field select:focus { outline: none; border-color: var(--primary); }
+.field input[type="password"] { font-family: monospace; letter-spacing: .1em; }
+
+.field-full { grid-column: 1 / -1; }
+
+.toggles { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: .25rem; }
+.toggle-label { display: flex; align-items: center; gap: .4rem; font-size: .85rem; cursor: pointer; user-select: none; }
+.toggle-label input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--primary); }
+
+/* Query */
+#query-section h2 { font-size: 1rem; font-weight: 600; margin-bottom: .75rem; }
+#query-input {
+  width: 100%; min-height: 80px; border: 1px solid var(--border);
+  border-radius: 8px; padding: .75rem; font-size: .95rem; color: var(--text);
+  resize: vertical; font-family: inherit; transition: border-color .15s;
+}
+#query-input:focus { outline: none; border-color: var(--primary); }
+#query-footer { display: flex; justify-content: flex-end; margin-top: .75rem; }
+#run-btn {
+  background: var(--primary); color: white; border: none;
+  border-radius: 7px; padding: .55rem 1.4rem; font-size: .9rem; font-weight: 500;
+  cursor: pointer; transition: background .15s, opacity .15s;
+}
+#run-btn:hover:not(:disabled) { background: var(--primary-hover); }
+#run-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Progress */
+#progress-section { display: none; }
+#progress-section h2 { font-size: .9rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .75rem; }
+
+.event-log { display: flex; flex-direction: column; gap: .5rem; }
+
+.event-item {
+  display: flex; align-items: flex-start; gap: .65rem;
+  font-size: .88rem; padding: .5rem .6rem; border-radius: 6px;
+}
+.event-item.plan { background: var(--primary-light); color: var(--primary); }
+.event-item.loop { background: #f0fdf4; color: var(--success); }
+.event-item.running { background: #fffbeb; color: var(--warn); }
+.event-item.error { background: #fef2f2; color: var(--danger); }
+
+.event-icon { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
+.event-body { flex: 1; }
+.event-body strong { font-weight: 600; }
+.subq-list { margin-top: .4rem; padding-left: .1rem; display: flex; flex-direction: column; gap: .2rem; }
+.subq-list li { list-style: none; display: flex; gap: .4rem; }
+.subq-list li::before { content: "•"; flex-shrink: 0; }
+
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid currentColor; border-top-color: transparent;
+  border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; margin-top: .2rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* HITL */
+#hitl-section { display: none; border-left: 3px solid var(--primary); }
+#hitl-section h2 { font-size: .95rem; font-weight: 600; color: var(--primary); margin-bottom: 1rem; }
+
+.hitl-questions { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
+.hitl-questions .field input { width: 100%; }
+
+.hitl-gaps { margin-bottom: 1rem; }
+.hitl-gaps ul { padding-left: 1.2rem; margin: .4rem 0 .75rem; font-size: .9rem; }
+.hitl-gaps ul li { margin-bottom: .2rem; }
+
+.hitl-draft-preview {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: .75rem; max-height: 300px; overflow-y: auto; font-size: .85rem;
+  margin-bottom: .75rem; line-height: 1.5;
+}
+
+.hitl-feedback { width: 100%; min-height: 60px; border: 1px solid var(--border); border-radius: 6px; padding: .6rem; font-size: .9rem; font-family: inherit; resize: vertical; margin-bottom: .75rem; }
+.hitl-feedback:focus { outline: none; border-color: var(--primary); }
+
+.hitl-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+.btn-approve {
+  background: var(--success); color: white; border: none;
+  border-radius: 6px; padding: .5rem 1.1rem; font-size: .88rem; font-weight: 500; cursor: pointer;
+}
+.btn-approve:hover { opacity: .9; }
+.btn-submit {
+  background: var(--primary); color: white; border: none;
+  border-radius: 6px; padding: .5rem 1.1rem; font-size: .88rem; font-weight: 500; cursor: pointer;
+}
+.btn-submit:hover { background: var(--primary-hover); }
+
+/* Report */
+#report-section { display: none; }
+#report-meta {
+  display: flex; gap: 1rem; font-size: .8rem; color: var(--muted);
+  margin-bottom: 1rem; padding-bottom: .75rem; border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+#report-meta span { display: flex; align-items: center; gap: .3rem; }
+
+/* Markdown report styles */
+#report-body { font-size: .95rem; line-height: 1.75; }
+#report-body h1, #report-body h2 { margin: 1.4rem 0 .6rem; font-weight: 700; }
+#report-body h2 { font-size: 1.15rem; padding-bottom: .3rem; border-bottom: 1px solid var(--border); }
+#report-body h3 { font-size: 1rem; font-weight: 600; margin: 1rem 0 .4rem; color: var(--muted); }
+#report-body p { margin-bottom: .9rem; }
+#report-body ul, #report-body ol { padding-left: 1.4rem; margin-bottom: .9rem; }
+#report-body li { margin-bottom: .3rem; }
+#report-body a { color: var(--primary); text-decoration: none; }
+#report-body a:hover { text-decoration: underline; }
+#report-body strong { font-weight: 600; }
+#report-body code { background: var(--bg); border-radius: 4px; padding: .1em .35em; font-size: .88em; font-family: monospace; }
+#report-body blockquote { border-left: 3px solid var(--border); padding-left: 1rem; color: var(--muted); margin: .75rem 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>⚗</span> Deep Research Agent</h1>
+  <button id="settings-btn" onclick="toggleSettings()">⚙ Settings</button>
+</header>
+
+<main>
+
+  <!-- Settings -->
+  <div class="card" id="settings-panel">
+    <h2>Configuration</h2>
+    <div class="settings-grid">
+      <div class="field">
+        <label>LLM Provider</label>
+        <select id="s-provider" onchange="onProviderChange()">
+          <option value="anthropic">Anthropic</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="s-api-key" placeholder="sk-ant-..." autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Fast Model</label>
+        <input type="text" id="s-fast-model" value="claude-haiku-4-5-20251001">
+      </div>
+      <div class="field">
+        <label>Powerful Model</label>
+        <input type="text" id="s-powerful-model" value="claude-sonnet-4-6">
+      </div>
+      <div class="field">
+        <label>Search Provider</label>
+        <select id="s-search" onchange="onSearchChange()">
+          <option value="duckduckgo">DuckDuckGo (free)</option>
+          <option value="tavily">Tavily</option>
+        </select>
+      </div>
+      <div class="field" id="tavily-key-field" style="display:none">
+        <label>Tavily API Key</label>
+        <input type="password" id="s-tavily-key" placeholder="tvly-..." autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Max Research Loops</label>
+        <input type="number" id="s-max-loops" value="2" min="1" max="10">
+      </div>
+      <div class="field">
+        <label>Search Breadth (queries/loop)</label>
+        <input type="number" id="s-breadth" value="3" min="1" max="10">
+      </div>
+      <div class="field field-full">
+        <label>Human-in-the-Loop Gates</label>
+        <div class="toggles">
+          <label class="toggle-label"><input type="checkbox" id="s-clarification"> Clarification</label>
+          <label class="toggle-label"><input type="checkbox" id="s-gap-review"> Gap Review</label>
+          <label class="toggle-label"><input type="checkbox" id="s-draft-review"> Draft Review</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Query -->
+  <div class="card" id="query-section">
+    <h2>Research Query</h2>
+    <textarea id="query-input" placeholder="What do you want to research?"></textarea>
+    <div id="query-footer">
+      <button id="run-btn" onclick="startResearch()">Research →</button>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="card" id="progress-section">
+    <h2>Progress</h2>
+    <div class="event-log" id="event-log"></div>
+  </div>
+
+  <!-- HITL -->
+  <div class="card" id="hitl-section">
+    <h2 id="hitl-title"></h2>
+    <div id="hitl-body"></div>
+  </div>
+
+  <!-- Report -->
+  <div class="card" id="report-section">
+    <div id="report-meta"></div>
+    <div id="report-body"></div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+// ── Settings persistence ──────────────────────────────────────────────────────
+
+const FIELDS = ['s-provider','s-api-key','s-fast-model','s-powerful-model',
+                 's-search','s-tavily-key','s-max-loops','s-breadth'];
+const CHECKS = ['s-clarification','s-gap-review','s-draft-review'];
+
+function loadSettings() {
+  FIELDS.forEach(id => {
+    const v = localStorage.getItem(id);
+    if (v !== null) document.getElementById(id).value = v;
+  });
+  CHECKS.forEach(id => {
+    const v = localStorage.getItem(id);
+    if (v !== null) document.getElementById(id).checked = v === 'true';
+  });
+  onProviderChange();
+  onSearchChange();
+}
+
+function saveSettings() {
+  FIELDS.forEach(id => localStorage.setItem(id, document.getElementById(id).value));
+  CHECKS.forEach(id => localStorage.setItem(id, document.getElementById(id).checked));
+}
+
+function getSettings() {
+  saveSettings();
+  return {
+    provider:            document.getElementById('s-provider').value,
+    api_key:             document.getElementById('s-api-key').value.trim(),
+    fast_model:          document.getElementById('s-fast-model').value.trim(),
+    powerful_model:      document.getElementById('s-powerful-model').value.trim(),
+    search_provider:     document.getElementById('s-search').value,
+    tavily_api_key:      document.getElementById('s-tavily-key').value.trim(),
+    max_loops:           parseInt(document.getElementById('s-max-loops').value) || 2,
+    breadth:             parseInt(document.getElementById('s-breadth').value) || 3,
+    enable_clarification: document.getElementById('s-clarification').checked,
+    enable_gap_review:   document.getElementById('s-gap-review').checked,
+    enable_draft_review: document.getElementById('s-draft-review').checked,
+  };
+}
+
+function toggleSettings() {
+  document.getElementById('settings-panel').classList.toggle('open');
+}
+
+function onProviderChange() {
+  const p = document.getElementById('s-provider').value;
+  const fast = document.getElementById('s-fast-model');
+  const powerful = document.getElementById('s-powerful-model');
+  if (p === 'anthropic') {
+    if (!fast.dataset.edited) fast.value = 'claude-haiku-4-5-20251001';
+    if (!powerful.dataset.edited) powerful.value = 'claude-sonnet-4-6';
+  } else {
+    if (!fast.dataset.edited) fast.value = 'gpt-4o-mini';
+    if (!powerful.dataset.edited) powerful.value = 'gpt-4o';
+  }
+}
+
+function onSearchChange() {
+  const isTavily = document.getElementById('s-search').value === 'tavily';
+  document.getElementById('tavily-key-field').style.display = isTavily ? '' : 'none';
+}
+
+// ── Research lifecycle ────────────────────────────────────────────────────────
+
+let currentJobId = null;
+let eventSource = null;
+
+async function startResearch() {
+  const settings = getSettings();
+  const query = document.getElementById('query-input').value.trim();
+
+  if (!query) { alert('Enter a query first.'); return; }
+  if (!settings.api_key) { openSettings(); alert('Add your API key in Settings.'); return; }
+
+  // Reset UI
+  resetUI();
+  document.getElementById('progress-section').style.display = 'block';
+  document.getElementById('run-btn').disabled = true;
+  addEvent('running', '⟳', '<strong>Starting research…</strong>');
+
+  let res;
+  try {
+    res = await fetch('/api/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, ...settings }),
+    });
+  } catch (e) {
+    addEvent('error', '✕', `Failed to start: ${e.message}`);
+    document.getElementById('run-btn').disabled = false;
+    return;
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    addEvent('error', '✕', `Server error: ${err.detail || res.statusText}`);
+    document.getElementById('run-btn').disabled = false;
+    return;
+  }
+
+  const { job_id } = await res.json();
+  currentJobId = job_id;
+
+  // Remove "Starting…" placeholder
+  document.getElementById('event-log').innerHTML = '';
+
+  eventSource = new EventSource(`/api/research/${job_id}/events`);
+  eventSource.onmessage = e => handleEvent(JSON.parse(e.data));
+  eventSource.addEventListener('done', () => {
+    eventSource.close();
+    document.getElementById('run-btn').disabled = false;
+  });
+  eventSource.onerror = () => {
+    addEvent('error', '✕', 'Connection to server lost.');
+    eventSource.close();
+    document.getElementById('run-btn').disabled = false;
+  };
+}
+
+function handleEvent(data) {
+  switch (data.type) {
+    case 'plan_ready': {
+      const items = data.sub_questions.map(q => `<li>${q.question}</li>`).join('');
+      addEvent('plan', '📋',
+        `<strong>Research plan</strong> — ${data.sub_questions.length} sub-questions`
+        + `<ul class="subq-list">${items}</ul>`);
+      break;
+    }
+    case 'research_update':
+      addEvent('loop', '✓',
+        `<strong>Loop ${data.loop_count}</strong> complete — ${data.sources_count} sources, ${data.findings_count} findings`);
+      break;
+    case 'clarification_needed':
+      showHitlClarification(data);
+      break;
+    case 'gap_review':
+      showHitlGapReview(data);
+      break;
+    case 'draft_ready':
+      showHitlDraftReview(data);
+      break;
+    case 'complete':
+      showReport(data);
+      break;
+    case 'error':
+      addEvent('error', '✕', `<strong>Error:</strong> ${data.message}`);
+      break;
+  }
+}
+
+// ── HITL handlers ─────────────────────────────────────────────────────────────
+
+function showHitl(title, bodyHtml) {
+  document.getElementById('hitl-title').textContent = title;
+  document.getElementById('hitl-body').innerHTML = bodyHtml;
+  document.getElementById('hitl-section').style.display = 'block';
+  document.getElementById('hitl-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function hideHitl() {
+  document.getElementById('hitl-section').style.display = 'none';
+}
+
+async function resume(value) {
+  hideHitl();
+  addEvent('running', '<span class="spinner"></span>', '<strong>Resuming…</strong>');
+  await fetch(`/api/research/${currentJobId}/resume`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  });
+  // Remove "Resuming…" placeholder (last item)
+  const log = document.getElementById('event-log');
+  if (log.lastChild) log.removeChild(log.lastChild);
+}
+
+function showHitlClarification(data) {
+  const inputs = data.questions.map((q, i) =>
+    `<div class="field">
+       <label>${q}</label>
+       <input type="text" id="cq-${i}" placeholder="Your answer…">
+     </div>`
+  ).join('');
+
+  showHitl('Clarification needed', `
+    <div class="hitl-questions">${inputs}</div>
+    <div class="hitl-actions">
+      <button class="btn-approve" onclick="resumeClarification(${JSON.stringify(data.questions)})">Skip (no answers)</button>
+      <button class="btn-submit" onclick="resumeClarification(${JSON.stringify(data.questions)})">Submit answers</button>
+    </div>
+  `);
+}
+
+function resumeClarification(questions) {
+  const answers = {};
+  questions.forEach((q, i) => {
+    const v = document.getElementById(`cq-${i}`)?.value?.trim();
+    if (v) answers[q] = v;
+  });
+  resume(answers);
+}
+
+function showHitlGapReview(data) {
+  const gaps = data.gaps.map(g => `<li>${g}</li>`).join('');
+  showHitl('Gap review', `
+    <div class="hitl-gaps">
+      <p style="font-size:.9rem;color:var(--muted);margin-bottom:.5rem">
+        Confidence: ${Math.round(data.confidence * 100)}% — missing topics:
+      </p>
+      <ul>${gaps}</ul>
+      <p style="font-size:.85rem;color:var(--muted)">Approve to use suggested follow-up queries, or paste custom queries (one per line):</p>
+      <textarea class="hitl-feedback" id="gap-input" placeholder="Leave empty to approve…"></textarea>
+    </div>
+    <div class="hitl-actions">
+      <button class="btn-approve" onclick="resume('approve')">Approve</button>
+      <button class="btn-submit" onclick="resume(document.getElementById('gap-input').value.trim() || 'approve')">Submit</button>
+    </div>
+  `);
+}
+
+function showHitlDraftReview(data) {
+  const preview = marked.parse(data.draft);
+  showHitl('Draft review', `
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem">Review the draft below. Approve to finalise, or leave feedback for revisions.</p>
+    <div class="hitl-draft-preview">${preview}</div>
+    <textarea class="hitl-feedback" id="draft-feedback" placeholder="Feedback (leave empty to approve)…"></textarea>
+    <div class="hitl-actions">
+      <button class="btn-approve" onclick="resume('approve')">Approve</button>
+      <button class="btn-submit" onclick="submitDraftFeedback()">Submit feedback</button>
+    </div>
+  `);
+}
+
+function submitDraftFeedback() {
+  const v = document.getElementById('draft-feedback').value.trim();
+  resume(v || 'approve');
+}
+
+// ── Report ────────────────────────────────────────────────────────────────────
+
+function showReport(data) {
+  const m = data.metadata;
+  document.getElementById('report-meta').innerHTML = `
+    <span>🔁 ${m.loops_run} loop${m.loops_run !== 1 ? 's' : ''}</span>
+    <span>📄 ${m.total_sources} sources</span>
+    <span>⏱ ${m.elapsed_seconds}s</span>
+  `;
+
+  document.getElementById('report-body').innerHTML = marked.parse(data.final_report);
+  document.getElementById('report-section').style.display = 'block';
+  document.getElementById('report-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  addEvent('loop', '✅', '<strong>Research complete</strong>');
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function addEvent(cls, icon, html) {
+  const log = document.getElementById('event-log');
+  const el = document.createElement('div');
+  el.className = `event-item ${cls}`;
+  el.innerHTML = `<div class="event-icon">${icon}</div><div class="event-body">${html}</div>`;
+  log.appendChild(el);
+}
+
+function resetUI() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  currentJobId = null;
+  document.getElementById('event-log').innerHTML = '';
+  document.getElementById('hitl-section').style.display = 'none';
+  document.getElementById('report-section').style.display = 'none';
+}
+
+function openSettings() {
+  document.getElementById('settings-panel').classList.add('open');
+}
+
+// Query box: Shift+Enter submits, Enter adds newline
+document.getElementById('query-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); startResearch(); }
+});
+
+// Init
+loadSettings();
+</script>
+</body>
+</html>
