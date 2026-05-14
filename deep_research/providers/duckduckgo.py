@@ -3,7 +3,7 @@ from .base import AsyncSearchProvider, SearchResult
 
 class _SyncDuckDuckGoProvider:
     def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
 
         results = []
         with DDGS() as ddgs:

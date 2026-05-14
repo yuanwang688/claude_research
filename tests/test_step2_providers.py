@@ -108,7 +108,7 @@ async def test_duckduckgo_provider_wraps_ddgs():
         {"href": "https://ddg.com/1", "title": "DDG Result", "body": "DDG body text"},
     ]
 
-    with patch("duckduckgo_search.DDGS") as MockDDGS:
+    with patch("ddgs.DDGS") as MockDDGS:
         mock_ctx = MagicMock()
         mock_ctx.__enter__ = MagicMock(return_value=mock_ctx)
         mock_ctx.__exit__ = MagicMock(return_value=False)
@@ -130,7 +130,7 @@ async def test_duckduckgo_handles_missing_fields():
 
     mock_rows = [{"href": "", "title": "", "body": ""}]
 
-    with patch("duckduckgo_search.DDGS") as MockDDGS:
+    with patch("ddgs.DDGS") as MockDDGS:
         mock_ctx = MagicMock()
         mock_ctx.__enter__ = MagicMock(return_value=mock_ctx)
         mock_ctx.__exit__ = MagicMock(return_value=False)

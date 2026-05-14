@@ -42,6 +42,11 @@ def assemble_report(
     """Combine section drafts into a final Markdown report with a sources appendix."""
     parts: list[str] = []
     for title, body in zip(sections, section_texts):
+        # Strip any leading heading lines the LLM may have included to avoid duplicates
+        lines = body.strip().splitlines()
+        while lines and lines[0].lstrip().startswith("#"):
+            lines.pop(0)
+        body = "\n".join(lines).strip()
         parts.append(f"## {title}\n\n{body}")
 
     report = "\n\n".join(parts)
