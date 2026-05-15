@@ -243,15 +243,22 @@ class OverallState(TypedDict):
 `merge_dicts` is a custom reducer that merges two `dict[str, Source]` dicts,
 deduplicating by URL (keeping the higher-scored version on conflict).
 
-### AD-6: Three toggleable HITL checkpoints
+### AD-6: Four toggleable HITL checkpoints
 
-| Checkpoint | Trigger | What user sees | Default |
-|---|---|---|---|
-| CP1: Clarification | After clarifier_node | Questions + draft plan | enabled |
-| CP2: Research gap | After reflection when insufficient | Gaps + proposed queries | enabled |
-| CP3: Draft review | After writer_node produces draft | Full draft report | enabled |
+| Checkpoint | Trigger | What user sees | Event type | Default |
+|---|---|---|---|---|
+| CP1: Clarification | After clarifier_node (first run) | Questions + draft plan | `ClarificationNeeded` | enabled |
+| CP2: Plan review | After planner_node | Sub-question list | `PlanReview` | enabled |
+| CP3: Research gap | After reflection when insufficient | Gaps + proposed queries | `GapReview` | enabled |
+| CP4: Draft review | After writer_node produces draft | Full draft report | `DraftReady` | enabled |
 
-Each is controlled by a `Config` boolean. When disabled, the checkpoint auto-approves.
+CP2 (plan review) is the new checkpoint added after the planner. If the user provides
+feedback (any text other than "approve"/"yes"/"ok"), it is stored as `plan_feedback`
+and the graph routes back to `clarifier_node`, which re-runs to produce an updated
+research brief (and optionally new clarifying questions if `enable_clarification` is on).
+The planner then re-runs with the updated brief, and CP2 fires again.
+
+Each checkpoint is controlled by a `Config` boolean. When disabled, the checkpoint auto-approves.
 
 ### AD-7: Prompt templates as first-class objects
 
@@ -281,6 +288,7 @@ class Config:
 
     # Checkpoints
     enable_clarification: bool = True
+    enable_plan_review: bool = True   # CP2: user reviews/approves sub-question list
     enable_gap_review: bool = True
     enable_draft_review: bool = True
 
@@ -442,17 +450,26 @@ deep_research/
 START
   │
   ▼
-[clarifier_node]
-  │  produces: research_brief, messages
-  │
-  ▼ interrupt(CP1) if enable_clarification
-  │  user provides: answers to clarifying questions + optional plan edits
-  │
-  ▼
-[planner_node]
-  │  produces: research_plan (list[SubQuestion])
-  │
-  ▼
+[clarifier_node] ◄─────────────────────────────────────────────────┐
+  │  produces: research_brief, messages                             │
+  │                                                                 │
+  ▼ interrupt(CP1) if enable_clarification                          │
+  │  user provides: answers to clarifying questions                 │
+  │                                                                 │
+  ▼                                                                 │
+[planner_node]                                                      │
+  │  produces: research_plan (list[SubQuestion]), plan_feedback     │
+  │                                                                 │
+  ▼ interrupt(CP2) if enable_plan_review                            │
+  │  user provides: "approve" or feedback text                      │
+  │                                                                 │
+  ├─ feedback="approve" ──────────────────────────────────────────► │ (continues below)
+  │                                                                 │
+  └─ feedback=<text> → plan_feedback set ──────────────────────────┘
+     clarifier re-runs with plan_feedback; updates research_brief
+     (CP1 may fire again if enable_clarification and new questions)
+
+  ▼ (approved)
 [query_generator_node]
   │  produces: search_queries (list[str])
   │
@@ -713,6 +730,9 @@ class OverallState(TypedDict):
     draft_report: str | None
     user_feedback: str | None
     final_report: str | None
+
+    # Plan review
+    plan_feedback: str | None  # set when user rejects the plan; cleared on approval
 ```
 
 ---

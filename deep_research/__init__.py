@@ -7,6 +7,7 @@ from .events import (
     DraftReady,
     GapReview,
     PlanReady,
+    PlanReview,
     ResearchResult,
     ResearchUpdate,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "AgentEvent",
     "ClarificationNeeded",
     "PlanReady",
+    "PlanReview",
     "ResearchUpdate",
     "GapReview",
     "DraftReady",

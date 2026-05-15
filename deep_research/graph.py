@@ -10,6 +10,11 @@ from .nodes.writer import writer_node
 from .state import OverallState
 
 
+def _route_after_planner(state: OverallState) -> str:
+    """If the user rejected the plan, loop back to clarifier to refine the brief."""
+    return "clarifier_node" if state.get("plan_feedback") else "query_generator_node"
+
+
 def _route_after_writer(state: OverallState) -> str:
     """If the writer captured feedback that implies missing research, loop back."""
     if state.get("user_feedback") and not state.get("final_report"):
@@ -30,7 +35,14 @@ def build_graph(config, llms: dict, search_provider, prompts=None):
 
     builder.add_edge(START, "clarifier_node")
     builder.add_edge("clarifier_node", "planner_node")
-    builder.add_edge("planner_node", "query_generator_node")
+    builder.add_conditional_edges(
+        "planner_node",
+        _route_after_planner,
+        {
+            "clarifier_node": "clarifier_node",
+            "query_generator_node": "query_generator_node",
+        },
+    )
     builder.add_conditional_edges("query_generator_node", dispatch_web_research)
     builder.add_edge("web_research_node", "reflection_node")
     builder.add_conditional_edges(

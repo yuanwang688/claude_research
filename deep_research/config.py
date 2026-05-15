@@ -19,6 +19,7 @@ class Config:
 
     # Checkpoints
     enable_clarification: bool = True
+    enable_plan_review: bool = True
     enable_gap_review: bool = True
     enable_draft_review: bool = True
 
@@ -74,6 +75,10 @@ class Configuration:
     @property
     def enable_clarification(self) -> bool:
         return self.config.enable_clarification
+
+    @property
+    def enable_plan_review(self) -> bool:
+        return self.config.enable_plan_review
 
     @property
     def enable_gap_review(self) -> bool:

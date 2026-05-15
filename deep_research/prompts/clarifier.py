@@ -24,3 +24,41 @@ The brief should:
 
 This brief will be used as the "north star" for all subsequent research steps.
 """
+
+PLAN_REVIEW_CLARIFIER_PROMPT = """\
+You are a research assistant refining a research direction based on user feedback \
+on the initial research plan.
+
+Current research brief:
+{research_brief}
+
+User's feedback on the proposed research plan:
+{plan_feedback}
+
+Your task:
+1. Identify 0–2 clarifying questions that would help address the user's feedback. \
+Ask 0 questions if the feedback is already clear and unambiguous.
+2. Draft an updated research plan (3–5 sentences) that incorporates the feedback.
+3. Estimate the scope of the revised research task.
+
+Focus on what the feedback implies about direction, depth, or emphasis changes.
+Do NOT re-ask questions already resolved in the existing research brief.
+"""
+
+PLAN_REVIEW_SYNTHESIZE_BRIEF_PROMPT = """\
+You are a research assistant updating a research brief based on plan feedback and \
+any follow-up answers provided.
+
+Original research brief:
+{research_brief}
+
+User's feedback on the research plan:
+{plan_feedback}
+
+Write an updated brief that:
+- Incorporates the direction or emphasis changes implied by the plan feedback
+- Refines scope based on any follow-up answers (if provided)
+- Remains 2–4 sentences — dense and unambiguous
+
+This updated brief will drive the next iteration of research planning.
+"""

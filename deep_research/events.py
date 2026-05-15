@@ -19,6 +19,11 @@ class PlanReady(AgentEvent):
     sub_questions: list[SubQuestion]
 
 
+class PlanReview(AgentEvent):
+    """Emitted when the planner produced a plan and is waiting for user approval or feedback."""
+    sub_questions: list[SubQuestion]
+
+
 class ResearchUpdate(AgentEvent):
     loop_count: int
     sources_count: int

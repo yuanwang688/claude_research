@@ -14,6 +14,7 @@ from .events import (
     DraftReady,
     GapReview,
     PlanReady,
+    PlanReview,
     ResearchResult,
     ResearchUpdate,
 )
@@ -101,6 +102,7 @@ class DeepResearchAgent:
             "final_report": None,
             "research_brief": "",
             "research_plan": [],
+            "plan_feedback": None,
         }
 
         start_time = time.monotonic()
@@ -125,8 +127,10 @@ class DeepResearchAgent:
             state = await self._graph.aget_state(config=self._runnable_config)
             values = state.values
 
-            # Emit progress events now that we have the full accumulated state
-            if planner_fired:
+            # Emit progress events now that we have the full accumulated state.
+            # When plan_review is enabled the plan is shown interactively via PlanReview,
+            # so skip the informational PlanReady to avoid duplication.
+            if planner_fired and not self._config.enable_plan_review:
                 plan = values.get("research_plan", [])
                 if plan:
                     yield PlanReady(sub_questions=plan)
@@ -178,7 +182,7 @@ class DeepResearchAgent:
         async for event in self.astream(query):
             if isinstance(event, Complete):
                 return event.result
-            if auto_approve and isinstance(event, (ClarificationNeeded, GapReview, DraftReady)):
+            if auto_approve and isinstance(event, (ClarificationNeeded, PlanReview, GapReview, DraftReady)):
                 await self.resume("approve")
         raise RuntimeError("Agent completed without producing a result.")
 
@@ -209,6 +213,11 @@ class DeepResearchAgent:
                 proposed_queries=payload.get("proposed_queries", []),
                 confidence=payload.get("confidence", 0.5),
             )
+        if interrupt_type == "plan_review":
+            from .state import SubQuestion
+            sqs = [SubQuestion(**sq) for sq in payload.get("sub_questions", [])]
+            return PlanReview(sub_questions=sqs)
+
         if interrupt_type == "draft_ready":
             return DraftReady(draft=payload.get("draft", ""))
 

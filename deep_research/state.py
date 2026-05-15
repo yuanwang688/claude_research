@@ -100,3 +100,6 @@ class OverallState(TypedDict):
     draft_report: str | None
     user_feedback: str | None
     final_report: str | None
+
+    # Plan review
+    plan_feedback: str | None  # set when user rejects the plan; cleared on approval
